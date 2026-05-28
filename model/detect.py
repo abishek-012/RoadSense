@@ -23,24 +23,22 @@ def preprocess(image_path):
 
     image = cv2.imread(image_path)
 
-    original = image.copy()
-
     image = cv2.resize(image, (640, 640))
 
-    image = image / 255.0
+    image = image.astype(np.float32) / 255.0
 
     image = image.transpose(2, 0, 1)
 
-    image = np.expand_dims(image, axis=0).astype(np.float32)
+    image = np.expand_dims(image, axis=0)
 
-    return image, original
+    return image
 
 
 def detect_hazard(image_path):
 
     session = get_session()
 
-    input_image, original = preprocess(image_path)
+    input_image = preprocess(image_path)
 
     input_name = session.get_inputs()[0].name
 
@@ -51,7 +49,7 @@ def detect_hazard(image_path):
 
     predictions = outputs[0]
 
-    confidence_threshold = 0.6
+    confidence_threshold = 0.4
 
     pothole_count = 0
 
@@ -61,13 +59,22 @@ def detect_hazard(image_path):
 
     for detection in predictions[0]:
 
-        confidence = float(detection[4])
+        if len(detection) < 5:
+            continue
+
+        confidence = float(
+            np.max(detection[4:])
+        )
 
         if confidence > confidence_threshold:
 
             pothole_count += 1
 
-            x_center, y_center, width, height = detection[:4]
+            x_center = float(detection[0])
+            y_center = float(detection[1])
+
+            width = float(detection[2])
+            height = float(detection[3])
 
             area = width * height
 
@@ -83,7 +90,10 @@ def detect_hazard(image_path):
 
     if max_area < 5000:
 
-        return "no_hazard", max_confidence, max_area, 0
+        return "no_hazard",
+        max_confidence,
+        max_area,
+        0
 
     return (
         "pothole",
