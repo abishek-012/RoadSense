@@ -88,7 +88,7 @@ def detect_hazard(image_path):
 
         return "no_hazard", 0, 0, 0
 
-    if max_area < 5000:
+    if max_area < 500:
 
         return (
             "no_hazard",
