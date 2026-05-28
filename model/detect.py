@@ -1,57 +1,93 @@
-import os
+import cv2
+import numpy as np
+import onnxruntime as ort
 
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-
-from ultralytics import YOLO
-
-model = None
+session = None
 
 
-def get_model():
+def get_session():
 
-    global model
+    global session
 
-    if model is None:
+    if session is None:
 
-        model = YOLO("model/pothole.pt")
+        session = ort.InferenceSession(
+            "model/pothole.onnx",
+            providers=["CPUExecutionProvider"]
+        )
 
-    return model
+    return session
+
+
+def preprocess(image_path):
+
+    image = cv2.imread(image_path)
+
+    original = image.copy()
+
+    image = cv2.resize(image, (640, 640))
+
+    image = image / 255.0
+
+    image = image.transpose(2, 0, 1)
+
+    image = np.expand_dims(image, axis=0).astype(np.float32)
+
+    return image, original
 
 
 def detect_hazard(image_path):
 
-    model = get_model()
+    session = get_session()
 
-    results = model(
-        image_path,
-        device="cpu",
-        verbose=False
+    input_image, original = preprocess(image_path)
+
+    input_name = session.get_inputs()[0].name
+
+    outputs = session.run(
+        None,
+        {input_name: input_image}
     )
 
-    boxes = results[0].boxes
+    predictions = outputs[0]
 
-    # No detection
-    if boxes is None or len(boxes) == 0:
+    confidence_threshold = 0.6
+
+    pothole_count = 0
+
+    max_confidence = 0
+
+    max_area = 0
+
+    for detection in predictions[0]:
+
+        confidence = float(detection[4])
+
+        if confidence > confidence_threshold:
+
+            pothole_count += 1
+
+            x_center, y_center, width, height = detection[:4]
+
+            area = width * height
+
+            if confidence > max_confidence:
+
+                max_confidence = confidence
+
+                max_area = area
+
+    if pothole_count == 0:
+
         return "no_hazard", 0, 0, 0
 
-    pothole_count = len(boxes)
+    if max_area < 5000:
 
-    confidence = float(boxes.conf[0])
+        return "no_hazard", max_confidence, max_area, 0
 
-    box = boxes.xyxy[0]
-
-    x1 = float(box[0])
-    y1 = float(box[1])
-    x2 = float(box[2])
-    y2 = float(box[3])
-
-    width = x2 - x1
-    height = y2 - y1
-
-    area = width * height
-
-    if confidence < 0.6 or area < 5000:
-        return "no_hazard", confidence, area, 0
-
-    return "pothole", confidence, area, pothole_count
+    return (
+        "pothole",
+        max_confidence,
+        max_area,
+        pothole_count
+    )
