@@ -90,10 +90,12 @@ def detect_hazard(image_path):
 
     if max_area < 5000:
 
-        return "no_hazard",
-        max_confidence,
-        max_area,
-        0
+        return (
+            "no_hazard",
+            max_confidence,
+            max_area,
+            0
+        )
 
     return (
         "pothole",
