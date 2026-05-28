@@ -1,3 +1,8 @@
+import os
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 from ultralytics import YOLO
 
 model = None
@@ -18,7 +23,11 @@ def detect_hazard(image_path):
 
     model = get_model()
 
-    results = model(image_path)
+    results = model(
+        image_path,
+        device="cpu",
+        verbose=False
+    )
 
     boxes = results[0].boxes
 
