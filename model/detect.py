@@ -1,8 +1,22 @@
 from ultralytics import YOLO
 
-model = YOLO("model/pothole.pt")
+model = None
+
+
+def get_model():
+
+    global model
+
+    if model is None:
+
+        model = YOLO("model/pothole.pt")
+
+    return model
+
 
 def detect_hazard(image_path):
+
+    model = get_model()
 
     results = model(image_path)
 
